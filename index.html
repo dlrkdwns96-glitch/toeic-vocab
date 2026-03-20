@@ -212,7 +212,7 @@ function renderLearn(a){
     a.innerHTML=`<div class="fade-in" style="padding-top:20px;">
       <div class="score-big">${words.length}</div>
       <div class="score-sub">학습 완료!</div>
-      <button class="btn-g" onclick="idx=0;render()">다시 학습하기</button>
+      <button class="btn-g" onclick="idx=0;answered=false;render()">다시 학습하기</button>
       <button class="btn-d" onclick="goTab('test')">테스트 시작 →</button>
     </div>`;return;
   }
@@ -228,10 +228,33 @@ function renderLearn(a){
       <div class="eng">${w.w}</div>
       <div class="kor">${w.m}</div>
       ${w.d?`<div class="desc">${w.d}</div>`:''}
-      ${w.ex?`<div class="ex">${w.ex}</div>`:''}
+      ${w.ex?`<div class="ex" style="margin-top:10px;">${w.ex}</div>`:''}
     </div>
-    <button class="btn-g" onclick="idx++;render()">다음 단어 →</button>
+    <div class="ans-wrap">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-align:center;">위 내용을 보고 직접 입력해보세요</div>
+      <div class="ans-row">
+        <input type="text" id="ans" placeholder="한국어 뜻을 입력하세요" autocomplete="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')checkLearn()">
+        <button onclick="checkLearn()">확인</button>
+      </div>
+      <div class="feedback" id="fb"></div>
+    </div>
+    <button class="btn-g" id="nxt" style="display:none;" onclick="idx++;answered=false;render()">다음 단어 →</button>
   </div>`;
+  setTimeout(()=>{const el=document.getElementById('ans');if(el)el.focus();},100);
+}
+
+function checkLearn(){
+  if(answered)return;
+  const inp=document.getElementById('ans');
+  if(!inp||!inp.value.trim())return;
+  const w=words[idx];
+  const val=inp.value.trim();
+  const keys=w.m.replace(/[~·\/\(\)\[\]]/g,' ').split(/[\s,;]+/).filter(k=>k.length>1);
+  const hit=keys.some(k=>val.includes(k));
+  answered=true;inp.disabled=true;
+  document.getElementById('nxt').style.display='block';
+  if(hit){document.getElementById('fb').textContent='✓ 정답!';document.getElementById('fb').className='feedback ok';}
+  else{document.getElementById('fb').textContent='✗ 오답 — 정답: '+w.m;document.getElementById('fb').className='feedback no';}
 }
 
 function renderTest(a){
