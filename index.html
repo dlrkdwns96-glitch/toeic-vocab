@@ -458,15 +458,61 @@ function updateCount(){
 function goTab(t){
   words=profileWords();
   tab=t;idx=0;score=0;wrong=[];answered=false;reviewMode=false;reviewWords=[];selected=[];
-  if(t==='learn'){chunkStart=0;learnedWords=[];testFromLearn=false;}
   ['learn','test','manage'].forEach(x=>{
     document.getElementById('t-'+x).className='tab'+(x===t?' on':'');
   });
+  if(t==='learn'){
+    testFromLearn=false;learnedWords=[];
+    // chunkStart가 0보다 크면 이어하기 선택 화면
+    if(chunkStart>0){
+      showLearnResume();
+      return;
+    }
+    chunkStart=0;
+  }
   render();
 }
 
+function showLearnResume(){
+  const a=document.getElementById('area');
+  const total=profileWords().length;
+  const doneCount=chunkStart;
+  const hasWrong=wrong.length>0;
+  a.innerHTML=`<div class="fade-in" style="padding-top:32px;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-family:'Space Mono',monospace;font-size:13px;color:var(--green-light);margin-bottom:8px;">학습 진행 중</div>
+      <div style="font-size:28px;font-weight:500;color:var(--text);margin-bottom:4px;">${doneCount} / ${total}</div>
+      <div style="font-size:13px;color:var(--muted);">단어 완료</div>
+      <div style="margin:16px auto;max-width:240px;">
+        <div style="height:4px;background:var(--bg3);border-radius:99px;">
+          <div style="height:4px;background:var(--green);border-radius:99px;width:${Math.round(doneCount/total*100)}%;"></div>
+        </div>
+      </div>
+    </div>
+    <button class="btn-g" id="btn-resume">이어서 학습하기 (${doneCount+1}번부터)</button>
+    ${hasWrong?`<button class="btn-g" id="btn-wrong-retry" style="background:var(--coral-dim);border-color:var(--coral);color:#F0997B;">틀린 단어 다시 풀기 (${wrong.length}개)</button>`:''}
+    <button class="btn-d" id="btn-restart">처음부터 다시하기</button>
+  </div>`;
+  document.getElementById('btn-resume').addEventListener('click',()=>{
+    idx=0;answered=false;render();
+  });
+  const btnWrong=document.getElementById('btn-wrong-retry');
+  if(btnWrong)btnWrong.addEventListener('click',()=>{
+    learnedWords=[...wrong].sort(()=>Math.random()-.5);
+    testFromLearn=true;
+    tab='test';
+    idx=0;score=0;wrong=[];answered=false;reviewMode=false;
+    ['learn','test','manage'].forEach(x=>{
+      document.getElementById('t-'+x).className='tab'+(x==='test'?' on':'');
+    });
+    render();
+  });
+  document.getElementById('btn-restart').addEventListener('click',()=>{
+    chunkStart=0;idx=0;wrong=[];answered=false;render();
+  });
+}
+
 function render(){
-  if(!testFromLearn) words=profileWords();
   const a=document.getElementById('area');
   if(tab==='learn')renderLearn(a);
   else if(tab==='test')renderTest(a);
@@ -475,8 +521,7 @@ function render(){
 
 // ── LEARN ──
 function chunkWords(){
-  // 현재 청크 (chunkStart 부터 CHUNK개)
-  return words.slice(chunkStart, chunkStart+CHUNK);
+  return profileWords().slice(chunkStart, chunkStart+CHUNK);
 }
 function chunkLabel(){
   const end=Math.min(chunkStart+CHUNK, words.length);
@@ -484,23 +529,26 @@ function chunkLabel(){
 }
 
 function renderLearn(a){
+  words=profileWords();
   if(!words.length){a.innerHTML='<p style="text-align:center;color:var(--muted);font-size:13px;padding:40px 0;">단어가 없습니다.</p>';return;}
   const chunk=chunkWords();
   // 청크 내 idx 완료
   if(idx>=chunk.length){
-    learnedWords=[...chunk]; // 이 청크 단어 저장
-    const hasNext=chunkStart+CHUNK<words.length;
+    learnedWords=[...chunk];
+    const totalWords=words.length;
+    const hasNext=chunkStart+CHUNK<totalWords;
+    const nextCount=Math.min(CHUNK, totalWords-(chunkStart+CHUNK));
     a.innerHTML=`<div class="fade-in" style="padding-top:20px;">
       <div class="score-big">${chunk.length}</div>
       <div class="score-sub">${chunkLabel()} 학습 완료!</div>
       <button class="btn-g" id="btn-start-test">테스트 시작 →</button>
-      ${hasNext?`<button class="btn-d" id="btn-next-chunk">다음 ${Math.min(CHUNK,words.length-(chunkStart+CHUNK))}단어 학습하기</button>`:''}
+      ${hasNext?`<button class="btn-d" id="btn-next-chunk">다음 ${nextCount}단어 학습하기</button>`:''}
       <button class="btn-d" id="btn-restart-chunk">이 구간 다시 학습</button>
     </div>`;
     document.getElementById('btn-start-test').addEventListener('click',startChunkTest);
     const btnNext=document.getElementById('btn-next-chunk');
-    if(btnNext)btnNext.addEventListener('click',()=>{chunkStart+=CHUNK;idx=0;answered=false;render();});
-    document.getElementById('btn-restart-chunk').addEventListener('click',()=>{idx=0;answered=false;render();});
+    if(btnNext)btnNext.addEventListener('click',()=>{chunkStart+=CHUNK;idx=0;answered=false;testFromLearn=false;words=profileWords();renderLearn(document.getElementById('area'));});
+    document.getElementById('btn-restart-chunk').addEventListener('click',()=>{idx=0;answered=false;renderLearn(document.getElementById('area'));});
     return;
   }
   const w=chunk[idx];
@@ -551,12 +599,9 @@ function checkLearn(){
 }
 
 function startChunkTest(){
-  // 학습한 단어를 랜덤 셔플해서 테스트
   learnedWords=[...chunkWords()].sort(()=>Math.random()-.5);
   tab='test';
   idx=0;score=0;wrong=[];answered=false;reviewMode=false;
-  // 테스트는 learnedWords 사용 (words 대신)
-  reviewMode=false;
   testFromLearn=true;
   ['learn','test','manage'].forEach(x=>{
     document.getElementById('t-'+x).className='tab'+(x==='test'?' on':'');
@@ -569,29 +614,45 @@ function renderTest(a){
   const list=reviewMode?reviewWords:(testFromLearn?learnedWords:words);
   if(!list.length){a.innerHTML='<p style="text-align:center;color:var(--muted);font-size:13px;padding:40px 0;">단어가 없습니다.</p>';return;}
   if(idx>=list.length){
-    if(!reviewMode&&wrong.length>0){
+    const totalWords=profileWords().length;
+    const hasNextChunk=testFromLearn&&(chunkStart+CHUNK<totalWords);
+    if(!reviewMode&&wrong.length>0&&!hasNextChunk){
+      // 틀린 단어 있고 다음 구간 없을 때만 복습 화면
       a.innerHTML=`<div class="fade-in" style="padding-top:12px;">
         <div class="score-big">${score}/${list.length}</div>
         <div class="score-sub">틀린 단어 ${wrong.length}개</div>
         <div class="wl-list" style="margin-bottom:16px;">
           ${wrong.map(w=>`<div class="wl-item"><span class="wl-en">${w.w}</span><span class="wl-kr">${w.m}</span></div>`).join('')}
         </div>
-        <button class="btn-g" onclick="startReview()">복습 시작 →</button>
-        <button class="btn-d" onclick="idx=0;score=0;wrong=[];answered=false;reviewMode=false;render()">처음부터</button>
+        <button class="btn-g" id="btn-review">복습 시작 →</button>
+        <button class="btn-d" id="btn-retest2">처음부터</button>
       </div>`;
+      document.getElementById('btn-review').addEventListener('click',startReview);
+      document.getElementById('btn-retest2').addEventListener('click',()=>{idx=0;score=0;wrong=[];answered=false;reviewMode=false;renderTest(document.getElementById('area'));});
     } else {
-      const hasNextChunk=chunkStart+CHUNK<words.length;
       a.innerHTML=`<div class="fade-in" style="padding-top:20px;">
         <div class="score-big">${score}/${list.length}</div>
-        <div class="score-sub">${reviewMode?'복습 완료!':'최종 완료!'} ${score===list.length?'— 완벽해요!':''}</div>
-        ${testFromLearn&&hasNextChunk?`<button class="btn-g" id="btn-next-learn">다음 구간 학습하기 →</button>`:''}
-        <button class="btn-g" id="btn-retest" style="${testFromLearn&&hasNextChunk?'display:none;':''}">다시 테스트</button>
+        <div class="score-sub">${reviewMode?'복습 완료!':'테스트 완료!'} ${score===list.length?'— 완벽해요!':''}</div>
+        ${hasNextChunk?`<button class="btn-g" id="btn-next-learn">다음 ${Math.min(CHUNK,totalWords-(chunkStart+CHUNK))}단어 학습하기 →</button>`:''}
+        ${!reviewMode&&wrong.length>0?`<button class="btn-g" id="btn-review2">틀린 단어 복습 →</button>`:''}
+        <button class="btn-d" id="btn-retest">다시 테스트</button>
         <button class="btn-d" id="btn-go-learn">학습 모드로</button>
       </div>`;
-      const btnNextLearn=document.getElementById('btn-next-learn');
-      if(btnNextLearn)btnNextLearn.addEventListener('click',()=>{chunkStart+=CHUNK;idx=0;answered=false;testFromLearn=false;goTab('learn');});
-      document.getElementById('btn-retest').addEventListener('click',()=>{idx=0;score=0;wrong=[];answered=false;reviewMode=false;render();});
-      document.getElementById('btn-go-learn').addEventListener('click',()=>{testFromLearn=false;goTab('learn');});
+      const btnNext=document.getElementById('btn-next-learn');
+      if(btnNext)btnNext.addEventListener('click',()=>{
+        chunkStart+=CHUNK;
+        idx=0;score=0;wrong=[];answered=false;testFromLearn=false;
+        words=profileWords();
+        tab='learn';
+        ['learn','test','manage'].forEach(x=>{
+          document.getElementById('t-'+x).className='tab'+(x==='learn'?' on':'');
+        });
+        renderLearn(document.getElementById('area'));
+      });
+      const btnReview2=document.getElementById('btn-review2');
+      if(btnReview2)btnReview2.addEventListener('click',startReview);
+      document.getElementById('btn-retest').addEventListener('click',()=>{idx=0;score=0;wrong=[];answered=false;reviewMode=false;renderTest(document.getElementById('area'));});
+      document.getElementById('btn-go-learn').addEventListener('click',()=>{testFromLearn=false;words=profileWords();goTab('learn');});
     }
     return;
   }
