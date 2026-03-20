@@ -541,9 +541,9 @@ function renderManage(a){
     </div>
     <div class="section-label" style="margin-top:14px;">이미지 / PDF 스캔</div>
     <div class="upload-zone" id="upload-zone">
-      <input type="file" id="file-in" accept="image/*,application/pdf">
+      <input type="file" id="file-in" accept="image/*,application/pdf" multiple>
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5DCAA5" stroke-width="1.5" style="display:block;margin:0 auto 8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <p>탭해서 <b>이미지 또는 PDF</b> 업로드<br><span style="font-size:11px;">AI가 단어와 뜻을 자동 인식합니다</span></p>
+      <p>탭해서 <b>이미지 또는 PDF</b> 업로드<br><span style="font-size:11px;">최대 5개 동시 선택 · AI 자동 인식</span></p>
     </div>
     <div class="section-label" style="margin-top:14px;">단어 직접 추가</div>
     <div class="add-row" style="margin-bottom:4px;">
@@ -651,32 +651,87 @@ function addScanned(){
   if(dupes>0)setTimeout(()=>alert(fresh.length+'개 추가! (중복 '+dupes+'개 제외)'),200);
 }
 
+async function fileToBase64(file){
+  if(file.type==='application/pdf'){
+    const ab=await file.arrayBuffer();
+    const bytes=new Uint8Array(ab);let bin='';
+    bytes.forEach(b=>bin+=String.fromCharCode(b));
+    return{base64:btoa(bin),mediaType:'application/pdf',isPdf:true};
+  }
+  const base64=await new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result.split(',')[1]);
+    r.onerror=rej;
+    r.readAsDataURL(file);
+  });
+  return{base64,mediaType:file.type||'image/jpeg',isPdf:false};
+}
+
+async function scanOneFile(file){
+  const{base64,mediaType,isPdf}=await fileToBase64(file);
+  const block=isPdf
+    ?{type:'document',source:{type:'base64',media_type:'application/pdf',data:base64}}
+    :{type:'image',source:{type:'base64',media_type:mediaType,data:base64}};
+  const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      model:'claude-sonnet-4-20250514',
+      max_tokens:4096,
+      messages:[{role:'user',content:[
+        block,
+        {type:'text',text:'이 이미지에서 영어 단어와 한국어 뜻 쌍만 추출하세요. 반드시 JSON 배열만 출력하고 다른 텍스트는 절대 포함하지 마세요. 형식: [{"w":"영어단어","m":"한국어뜻"},...] 버튼, UI 텍스트, 제목은 제외하고 단어와 뜻만 추출하세요.'}
+      ]}]
+    })
+  });
+  if(!resp.ok)throw new Error('API error '+resp.status);
+  const data=await resp.json();
+  if(data.error)throw new Error(data.error.message||'API error');
+  const text=data.content.filter(c=>c.type==='text').map(c=>c.text).join('');
+  const clean=text.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+  const parsed=JSON.parse(clean);
+  if(!Array.isArray(parsed))throw new Error('not array');
+  return parsed.filter(x=>x.w&&x.m);
+}
+
 async function handleFile(e){
-  const file=e.target.files[0];if(!file)return;
-  scanState='scanning';render();
-  try{
-    let base64='',mediaType=file.type||'image/jpeg';
-    if(file.type==='application/pdf'){
-      const ab=await file.arrayBuffer();const bytes=new Uint8Array(ab);let bin='';
-      bytes.forEach(b=>bin+=String.fromCharCode(b));base64=btoa(bin);
-    }else{
-      base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
+  const files=Array.from(e.target.files).slice(0,5);
+  if(!files.length)return;
+  scanState='scanning';
+  document.getElementById('area').innerHTML=`
+    <div class="scanning-box fade-in">
+      <div class="dot-row"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <p class="scan-sub" id="scan-status">파일 스캔 중... (0/${files.length})</p>
+    </div>`;
+  const allWords=[];
+  let done=0;
+  for(const file of files){
+    try{
+      const result=await scanOneFile(file);
+      allWords.push(...result);
+      done++;
+      const st=document.getElementById('scan-status');
+      if(st)st.textContent='파일 스캔 중... ('+done+'/'+files.length+')';
+    }catch(err){
+      done++;
+      const st=document.getElementById('scan-status');
+      if(st)st.textContent='일부 실패, 계속 진행 중... ('+done+'/'+files.length+')';
     }
-    const isPdf=file.type==='application/pdf';
-    const block=isPdf?{type:'document',source:{type:'base64',media_type:'application/pdf',data:base64}}:{type:'image',source:{type:'base64',media_type:mediaType,data:base64}};
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:[block,{type:'text',text:'이 이미지에서 영어 단어와 한국어 뜻 목록을 추출해주세요. 반드시 JSON 배열만 응답: [{"w":"영어단어","m":"한국어뜻"},...] 다른 텍스트 없이 JSON만 출력하세요.'}]}]})});
-    const data=await resp.json();
-    const text=data.content.map(c=>c.text||'').join('');
-    const clean=text.replace(/```json|```/g,'').trim();
-    const parsed=JSON.parse(clean);
-    if(!Array.isArray(parsed)||!parsed.length)throw new Error('no words');
-    scannedWords=parsed.filter(x=>x.w&&x.m);
-    scanState='preview';render();
-  }catch(err){
-    scanState='idle';render();
-    setTimeout(()=>alert('스캔 실패. 이미지가 선명한지 확인 후 다시 시도해주세요.'),100);
   }
   e.target.value='';
+  if(!allWords.length){
+    scanState='idle';render();
+    setTimeout(()=>alert('단어를 찾지 못했어요.\n이미지가 선명한지 확인 후 다시 시도해주세요.'),100);
+    return;
+  }
+  // 중복 제거
+  const seen=new Set();
+  scannedWords=allWords.filter(x=>{
+    const key=x.w.toLowerCase();
+    if(seen.has(key))return false;
+    seen.add(key);return true;
+  });
+  scanState='preview';render();
 }
 
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
