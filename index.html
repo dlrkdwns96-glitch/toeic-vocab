@@ -466,7 +466,7 @@ function goTab(t){
 }
 
 function render(){
-  words=profileWords();
+  if(!testFromLearn) words=profileWords();
   const a=document.getElementById('area');
   if(tab==='learn')renderLearn(a);
   else if(tab==='test')renderTest(a);
@@ -616,9 +616,11 @@ function renderTest(a){
       </div>
       <div class="feedback" id="fb"></div>
     </div>
-    <button class="btn-g" id="nxt" style="display:none;" onclick="idx++;answered=false;render()">다음 단어 →</button>
+    <button class="btn-g" id="nxt" style="display:none;">다음 단어 →</button>
   </div>`;
   setTimeout(()=>{const el=document.getElementById('ans');if(el)el.focus();},100);
+  const nxtBtn=document.getElementById('nxt');
+  if(nxtBtn)nxtBtn.addEventListener('click',()=>{idx++;answered=false;renderTest(document.getElementById('area'));});
 }
 function checkAns(){
   if(answered)return;
