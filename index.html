@@ -675,7 +675,7 @@ async function scanOneFile(file){
   const PROXY='https://toeic-proxy.dlrkdwns96.workers.dev';
   const resp=await fetch(PROXY,{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:{'Content-Type':'text/plain'},
     body:JSON.stringify({
       model:'claude-sonnet-4-20250514',
       max_tokens:4096,
