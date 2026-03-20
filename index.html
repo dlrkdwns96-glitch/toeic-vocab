@@ -624,7 +624,7 @@ function checkAns(){
   if(answered)return;
   const inp=document.getElementById('ans');
   if(!inp||!inp.value.trim())return;
-  const list=reviewMode?reviewWords:words;
+  const list=reviewMode?reviewWords:(testFromLearn?learnedWords:words);
   const w=list[idx];
   const val=inp.value.trim();
   const keys=w.m.replace(/[~·\/\(\)\[\]]/g,' ').split(/[\s,;]+/).filter(k=>k.length>1);
