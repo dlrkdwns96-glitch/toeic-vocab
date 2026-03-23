@@ -397,6 +397,64 @@ const BASE2=[
   {w:'confused',m:'혼란스러운, 당황한',d:'',ex:''},
   {w:'errand',m:'심부름',d:'',ex:''},
   {w:'get a permit',m:'허가를 받다',d:'',ex:''}
+];
+const BASE3=[
+  {w:'philanthropic',m:'자선 사업의, 박애주의의',d:'',ex:''},
+  {w:'determine',m:'결정하다',d:'',ex:''},
+  {w:'automotive',m:'자동차의',d:'',ex:''},
+  {w:'export',m:'수출, 수출하다',d:'',ex:''},
+  {w:'interest',m:'관심을 끌다',d:'',ex:''},
+  {w:'relieve',m:'완화하다, 덜어 주다',d:'',ex:''},
+  {w:'fossil fuel',m:'화석 연료',d:'',ex:''},
+  {w:'climate change',m:'기후 변화',d:'',ex:''},
+  {w:'ahead of time',m:'예정된 것보다 빨리',d:'',ex:''},
+  {w:'authorize',m:'허가하다',d:'',ex:''},
+  {w:'require',m:'요구하다',d:'',ex:''},
+  {w:'presentation',m:'발표',d:'',ex:''},
+  {w:'shareholder',m:'주주',d:'',ex:''},
+  {w:'address',m:'다루다, 연설하다',d:'',ex:''},
+  {w:'concern',m:'우려',d:'',ex:''},
+  {w:'regarding',m:'~에 관하여',d:'',ex:''},
+  {w:'state-of-the-art',m:'최첨단의',d:'',ex:''},
+  {w:'laboratory',m:'실험실',d:'',ex:''},
+  {w:'consist of',m:'~로 구성되다',d:'',ex:''},
+  {w:'company president',m:'회사 사장',d:'',ex:''},
+  {w:'resign',m:'사임하다',d:'',ex:''},
+  {w:'competitor',m:'경쟁 상대',d:'',ex:''},
+  {w:'income tax',m:'소득세',d:'',ex:''},
+  {w:'improve',m:'개선되다',d:'',ex:''},
+  {w:'accounting',m:'회계',d:'',ex:''},
+  {w:'merger',m:'합병',d:'',ex:''},
+  {w:'term',m:'조건',d:'',ex:''},
+  {w:'agreement',m:'계약',d:'',ex:''},
+  {w:'negotiate',m:'협상하다',d:'',ex:''},
+  {w:'launch',m:'출시하다',d:'',ex:''},
+  {w:'market share',m:'시장 점유율',d:'',ex:''},
+  {w:'manual',m:'설명서',d:'',ex:''},
+  {w:'editor',m:'편집자',d:'',ex:''},
+  {w:'go over',m:'검토하다',d:'',ex:''},
+  {w:'arrange',m:'준비하다',d:'',ex:''},
+  {w:'loan',m:'대출',d:'',ex:''},
+  {w:'deny',m:'거절하다',d:'',ex:''},
+  {w:'financial institution',m:'금융 기관',d:'',ex:''},
+  {w:'refund',m:'환불하다',d:'',ex:''},
+  {w:'confidence',m:'신뢰',d:'',ex:''},
+  {w:'stabilize',m:'안정되다',d:'',ex:''},
+  {w:'administrative',m:'행정상의',d:'',ex:''},
+  {w:'revision',m:'수정',d:'',ex:''},
+  {w:'advertisement',m:'광고',d:'',ex:''},
+  {w:'effective',m:'효과적인',d:'',ex:''},
+  {w:'gain',m:'얻다',d:'',ex:''},
+  {w:'luxury',m:'고급의',d:'',ex:''},
+  {w:'establish',m:'설립하다',d:'',ex:''},
+  {w:'staffing',m:'인력 배치',d:'',ex:''},
+  {w:'proposal',m:'제안',d:'',ex:''},
+  {w:'feasible',m:'실행 가능한',d:'',ex:''},
+  {w:'beneficiary',m:'수혜자',d:'',ex:''},
+  {w:'requirement',m:'요구 사항',d:'',ex:''},
+  {w:'objective',m:'목표',d:'',ex:''},
+  {w:'representative',m:'대표',d:'',ex:''},
+  {w:'revise',m:'수정하다',d:'',ex:''}
 ];;
 
 const COLORS=['#3B6D11','#185FA5','#854F0B','#993556','#534AB7','#993C1D','#085041','#444441'];
@@ -461,15 +519,14 @@ function selectProfile(id){
   if(!p.weeks){
     p.weeks=[
       {name:'1주차',words:p.words&&p.words.length?[...p.words]:[...BASE]},
-      {name:'2주차',words:[...BASE2]}
+      {name:'2주차',words:[...BASE2]},
+      {name:'3주차',words:[...BASE3]}
     ];
     delete p.words;
   }
-  if(!p.weeks.length) p.weeks=[{name:'1주차',words:[...BASE]},{name:'2주차',words:[...BASE2]}];
-  // 2주차 없으면 자동 추가
-  if(p.weeks.length===1 && p.weeks[0].name==='1주차'){
-    p.weeks.push({name:'2주차',words:[...BASE2]});
-  }
+  if(!p.weeks.length) p.weeks=[{name:'1주차',words:[...BASE]},{name:'2주차',words:[...BASE2]},{name:'3주차',words:[...BASE3]}];
+  if(p.weeks.length===1) p.weeks.push({name:'2주차',words:[...BASE2]},{name:'3주차',words:[...BASE3]});
+  if(p.weeks.length===2) p.weeks.push({name:'3주차',words:[...BASE3]});
   saveProfiles();
   currentWeekIdx=0;
   const initials=p.name.slice(0,2).toUpperCase();
