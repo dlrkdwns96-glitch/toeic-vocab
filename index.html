@@ -183,6 +183,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Noto S
     <button class="tab" id="t-manage" onclick="goTab('manage')">단어 관리</button>
   </div>
   <div class="scroll" id="area"></div>
+<input id="ghost-focus" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none;" onkeydown="handleGhostKey(event)" readonly>
 </div>
 
 <script>
@@ -791,7 +792,7 @@ function renderLearn(a){
   const w=chunk[idx];
   const pct=Math.round(idx/chunk.length*100);
   const chunkEnd=Math.min(chunkStart+CHUNK,words.length);
-  a.innerHTML=`<div class="fade-in">
+  a.innerHTML=`<div class="fade-in" style="display:flex;flex-direction:column;min-height:calc(100vh - 140px);">
     <div class="prog-wrap">
       <div class="prog-meta">
         <span>${chunkLabel()} · ${idx+1}/${chunk.length}</span>
@@ -806,20 +807,50 @@ function renderLearn(a){
       ${w.d?`<div class="desc">${w.d}</div>`:''}
       ${w.ex?`<div class="ex" style="margin-top:10px;">${w.ex}</div>`:''}
     </div>
-    <div class="ans-wrap">
-      <div class="ans-hint">위 내용을 보고 직접 입력해보세요</div>
+    <div style="flex:0.8;"></div>
+    <div class="ans-wrap" style="padding-bottom:calc(var(--safe-bot) + 8px);">
+      <div class="feedback" id="fb" style="margin-bottom:6px;"></div>
       <div class="ans-row">
-        <input type="text" id="ans" placeholder="한국어 뜻을 입력하세요" autocomplete="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')checkLearn()">
+        <input type="text" id="ans" placeholder="한국어 뜻을 입력하세요" autocomplete="off" autocorrect="off" spellcheck="false" onkeydown="handleLearnKey(event)">
         <button onclick="checkLearn()">확인</button>
       </div>
-      <div class="feedback" id="fb"></div>
     </div>
-    <button class="btn-g" id="nxt" style="display:none;">다음 단어 →</button>
+    <button class="btn-g" id="nxt" style="display:none;margin-bottom:8px;">다음 단어 →</button>
   </div>`;
   document.getElementById('nxt').addEventListener('click',()=>{idx++;answered=false;render();});
   setTimeout(()=>{const el=document.getElementById('ans');if(el)el.focus();},100);
 }
 
+function handleGhostKey(e){
+  if(e.key!=='Enter')return;
+  e.preventDefault();
+  if(!answered)return;
+  if(tab==='learn'){idx++;answered=false;render();}
+  else if(tab==='test'){idx++;answered=false;renderTest(document.getElementById('area'));}
+}
+function handleLearnKey(e){
+  if(e.key!=='Enter')return;
+  e.preventDefault();
+  if(answered){
+    idx++;answered=false;
+    render();
+  } else {
+    checkLearn();
+    // 체크 후 포커스 유지
+    setTimeout(()=>{const el=document.getElementById('ans');if(el)el.focus();},50);
+  }
+}
+function handleTestKey(e){
+  if(e.key!=='Enter')return;
+  e.preventDefault();
+  if(answered){
+    idx++;answered=false;
+    renderTest(document.getElementById('area'));
+  } else {
+    checkAns();
+    setTimeout(()=>{const el=document.getElementById('ans');if(el)el.focus();},50);
+  }
+}
 function checkLearn(){
   if(answered)return;
   const inp=document.getElementById('ans');
@@ -829,10 +860,13 @@ function checkLearn(){
   const val=inp.value.trim();
   const keys=w.m.replace(/[~·\/\(\)\[\]]/g,' ').split(/[\s,;]+/).filter(k=>k.length>1);
   const hit=keys.some(k=>val.includes(k));
-  answered=true;inp.disabled=true;
+  answered=true;inp.disabled=true;inp.style.opacity='0.5';
   document.getElementById('nxt').style.display='block';
-  if(hit){document.getElementById('fb').textContent='✓ 정답!';document.getElementById('fb').className='feedback ok';}
-  else{document.getElementById('fb').textContent='✗ 오답 — 정답: '+w.m;document.getElementById('fb').className='feedback no';}
+  if(hit){document.getElementById('fb').textContent='✓ 정답! (엔터로 다음)';document.getElementById('fb').className='feedback ok';}
+  else{document.getElementById('fb').textContent='✗ 오답 — 정답: '+w.m+' (엔터로 다음)';document.getElementById('fb').className='feedback no';}
+  // 포커스를 숨겨진 엘리먼트로 이동해서 엔터 재입력 받기
+  const ghost=document.getElementById('ghost-focus');
+  if(ghost){ghost.focus();}
 }
 
 function startChunkTest(){
@@ -912,7 +946,7 @@ function renderTest(a){
     </div>
     <div class="ans-wrap">
       <div class="ans-row">
-        <input type="text" id="ans" placeholder="한국어 뜻을 입력하세요" autocomplete="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')checkAns()">
+        <input type="text" id="ans" placeholder="한국어 뜻을 입력하세요" autocomplete="off" autocorrect="off" spellcheck="false" onkeydown="handleTestKey(event)">
         <button onclick="checkAns()">확인</button>
       </div>
       <div class="feedback" id="fb"></div>
@@ -932,11 +966,13 @@ function checkAns(){
   const val=inp.value.trim();
   const keys=w.m.replace(/[~·\/\(\)\[\]]/g,' ').split(/[\s,;]+/).filter(k=>k.length>1);
   const hit=keys.some(k=>val.includes(k));
-  answered=true;inp.disabled=true;
+  answered=true;inp.disabled=true;inp.style.opacity='0.5';
   ['rv-m','rv-d','rv-e'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='block';});
   document.getElementById('nxt').style.display='block';
-  if(hit){score++;document.getElementById('fb').textContent='✓ 정답!';document.getElementById('fb').className='feedback ok';}
-  else{if(!reviewMode)wrong.push(w);document.getElementById('fb').textContent='✗ 오답 — '+w.m;document.getElementById('fb').className='feedback no';}
+  if(hit){score++;document.getElementById('fb').textContent='✓ 정답! (엔터로 다음)';document.getElementById('fb').className='feedback ok';}
+  else{if(!reviewMode)wrong.push(w);document.getElementById('fb').textContent='✗ 오답 — '+w.m+' (엔터로 다음)';document.getElementById('fb').className='feedback no';}
+  const ghost=document.getElementById('ghost-focus');
+  if(ghost){ghost.focus();}
 }
 function startReview(){reviewMode=true;reviewWords=[...wrong].sort(()=>Math.random()-.5);idx=0;score=0;answered=false;render();}
 
