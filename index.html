@@ -130,8 +130,20 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Noto S
 .preview-item:last-child{border-bottom:none;}
 .preview-en{font-family:'Space Mono',monospace;font-size:12px;color:var(--green-light);min-width:110px;}
 .preview-kr{flex:1;color:var(--muted);font-size:12px;}
+.week-tab{flex-shrink:0;padding:5px 14px;border-radius:99px;border:0.5px solid var(--border);background:var(--bg2);color:var(--muted);font-size:12px;cursor:pointer;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;}
+.week-tab.on{background:var(--green-dim);border-color:var(--green);color:var(--green-light);}
+.week-tab-add{flex-shrink:0;padding:5px 12px;border-radius:99px;border:1.5px dashed var(--border);background:transparent;color:var(--hint);font-size:12px;cursor:pointer;white-space:nowrap;}
 .fade-in{animation:fadeIn .25s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.chunk-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.chunk-btn{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:14px 12px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:4px;transition:background .15s;}
+.chunk-btn:active{background:var(--bg3);}
+.chunk-btn.chunk-current{border-color:var(--green);background:var(--green-dim);}
+.chunk-btn.chunk-done{border-color:var(--hint);opacity:.6;}
+.chunk-range{font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:var(--text);}
+.chunk-btn.chunk-current .chunk-range{color:var(--green-light);}
+.chunk-label{font-size:11px;color:var(--muted);}
+.chunk-btn.chunk-current .chunk-label{color:var(--green);}
 </style>
 </head>
 <body>
@@ -164,6 +176,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Noto S
     </div>
     <span class="word-count" id="wcount">0단어</span>
   </div>
+  <div style="display:flex;align-items:center;gap:8px;padding:0 16px 8px;overflow-x:auto;-webkit-overflow-scrolling:touch;" id="week-tabs"></div>
   <div class="tabs">
     <button class="tab on" id="t-learn" onclick="goTab('learn')">학습</button>
     <button class="tab" id="t-test" onclick="goTab('test')">테스트</button>
@@ -352,11 +365,15 @@ function getProfile(id){return profiles.find(p=>p.id===id);}
 function currentProfile(){return getProfile(currentProfileId);}
 function profileWords(){
   const p=currentProfile();
-  return p?p.words:[];
+  if(!p)return [];
+  if(!p.weeks||!p.weeks.length) return p.words||[];
+  return p.weeks[currentWeekIdx]?p.weeks[currentWeekIdx].words:[];
 }
 function setProfileWords(w){
   const p=currentProfile();if(!p)return;
-  p.words=w;saveProfiles();
+  if(!p.weeks||!p.weeks.length){p.words=w;}
+  else if(p.weeks[currentWeekIdx]){p.weeks[currentWeekIdx].words=w;}
+  saveProfiles();
 }
 
 // ── PROFILE SCREEN ──
@@ -388,9 +405,14 @@ function renderProfileScreen(){
 function selectProfile(id){
   currentProfileId=id;
   const p=getProfile(id);
-  if(!p.words||!p.words.length)p.words=[...BASE];
+  // 기존 words를 1주차로 마이그레이션
+  if(!p.weeks){
+    p.weeks=[{name:'1주차',words:p.words&&p.words.length?[...p.words]:[...BASE]}];
+    delete p.words;
+  }
+  if(!p.weeks.length) p.weeks=[{name:'1주차',words:[...BASE]}];
   saveProfiles();
-  // update topbar
+  currentWeekIdx=0;
   const initials=p.name.slice(0,2).toUpperCase();
   const av=document.getElementById('topbar-avatar');
   av.textContent=initials;
@@ -398,6 +420,7 @@ function selectProfile(id){
   av.style.color=p.color;
   av.style.borderColor=p.color+'66';
   document.getElementById('topbar-name').textContent=p.name;
+  renderWeekTabs();
   updateCount();
   document.getElementById('profile-screen').style.display='none';
   document.getElementById('app-screen').className='show';
@@ -442,6 +465,7 @@ function confirmAddProfile(){
 const CHUNK=10;
 let words=[];
 let tab='learn';
+let currentWeekIdx=0;
 let idx=0,score=0,wrong=[],answered=false,reviewMode=false,reviewWords=[];
 let scanState='idle',scannedWords=[];
 let showBanner=true;
@@ -451,8 +475,38 @@ let learnedWords=[];
 let testFromLearn=false;
 
 function updateCount(){
+  const w=profileWords();
+  document.getElementById('wcount').textContent=w.length+'단어';
+}
+
+function renderWeekTabs(){
   const p=currentProfile();
-  document.getElementById('wcount').textContent=(p?p.words.length:0)+'단어';
+  if(!p||!p.weeks)return;
+  const el=document.getElementById('week-tabs');
+  if(!el)return;
+  el.innerHTML=p.weeks.map((w,i)=>`
+    <button class="week-tab${i===currentWeekIdx?' on':''}" data-idx="${i}">${w.name}</button>
+  `).join('')+`<button class="week-tab-add" id="btn-add-week">+ 주차 추가</button>`;
+  el.querySelectorAll('.week-tab').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      currentWeekIdx=parseInt(btn.dataset.idx);
+      chunkStart=0;idx=0;score=0;wrong=[];answered=false;
+      renderWeekTabs();
+      updateCount();
+      goTab(tab);
+    });
+  });
+  document.getElementById('btn-add-week').addEventListener('click',()=>{
+    const p=currentProfile();
+    const weekNum=p.weeks.length+1;
+    p.weeks.push({name:weekNum+'주차',words:[]});
+    saveProfiles();
+    currentWeekIdx=p.weeks.length-1;
+    chunkStart=0;idx=0;score=0;wrong=[];answered=false;
+    renderWeekTabs();
+    updateCount();
+    goTab('manage');
+  });
 }
 
 function goTab(t){
@@ -463,39 +517,54 @@ function goTab(t){
   });
   if(t==='learn'){
     testFromLearn=false;learnedWords=[];
-    // chunkStart가 0보다 크면 이어하기 선택 화면
-    if(chunkStart>0){
-      showLearnResume();
-      return;
-    }
-    chunkStart=0;
+    showChunkSelect();
+    return;
+  }
+  if(t==='test'){
+    testFromLearn=false;learnedWords=[];
+    showTestChunkSelect();
+    return;
   }
   render();
 }
 
-function showLearnResume(){
+function showChunkSelect(){
   const a=document.getElementById('area');
-  const total=profileWords().length;
-  const doneCount=chunkStart;
+  const allWords=profileWords();
+  const total=allWords.length;
+  const totalChunks=Math.ceil(total/CHUNK);
   const hasWrong=wrong.length>0;
-  a.innerHTML=`<div class="fade-in" style="padding-top:32px;">
-    <div style="text-align:center;margin-bottom:24px;">
-      <div style="font-family:'Space Mono',monospace;font-size:13px;color:var(--green-light);margin-bottom:8px;">학습 진행 중</div>
-      <div style="font-size:28px;font-weight:500;color:var(--text);margin-bottom:4px;">${doneCount} / ${total}</div>
-      <div style="font-size:13px;color:var(--muted);">단어 완료</div>
-      <div style="margin:16px auto;max-width:240px;">
-        <div style="height:4px;background:var(--bg3);border-radius:99px;">
-          <div style="height:4px;background:var(--green);border-radius:99px;width:${Math.round(doneCount/total*100)}%;"></div>
-        </div>
-      </div>
+
+  // 구간 버튼 생성
+  const chunkBtns=Array.from({length:totalChunks},(_,i)=>{
+    const s=i*CHUNK;
+    const e=Math.min(s+CHUNK,total);
+    const isCurrent=s===chunkStart;
+    const isDone=s<chunkStart;
+    return `<button class="chunk-btn${isCurrent?' chunk-current':isDone?' chunk-done':''}" data-start="${s}">
+      <span class="chunk-range">${s+1}~${e}</span>
+      <span class="chunk-label">${isDone?'완료':isCurrent?'진행 중':'미학습'}</span>
+    </button>`;
+  }).join('');
+
+  a.innerHTML=`<div class="fade-in" style="padding-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <span style="font-size:10px;font-family:'Space Mono',monospace;letter-spacing:.08em;color:var(--hint);text-transform:uppercase;">구간 선택</span>
+      <span style="font-size:12px;color:var(--muted);">${total}단어 · ${totalChunks}구간</span>
     </div>
-    <button class="btn-g" id="btn-resume">이어서 학습하기 (${doneCount+1}번부터)</button>
-    ${hasWrong?`<button class="btn-g" id="btn-wrong-retry" style="background:var(--coral-dim);border-color:var(--coral);color:#F0997B;">틀린 단어 다시 풀기 (${wrong.length}개)</button>`:''}
-    <button class="btn-d" id="btn-restart">처음부터 다시하기</button>
+    <div class="chunk-grid" id="chunk-grid">${chunkBtns}</div>
+    ${hasWrong?`<div style="margin-top:12px;"><button class="btn-g" id="btn-wrong-retry" style="background:var(--coral-dim);border-color:var(--coral);color:#F0997B;">틀린 단어 다시 풀기 (${wrong.length}개)</button></div>`:''}
   </div>`;
-  document.getElementById('btn-resume').addEventListener('click',()=>{
-    idx=0;answered=false;render();
+
+  // 구간 버튼 이벤트
+  document.querySelectorAll('.chunk-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      chunkStart=parseInt(btn.dataset.start);
+      idx=0;answered=false;score=0;
+      render();
+    });
   });
+
   const btnWrong=document.getElementById('btn-wrong-retry');
   if(btnWrong)btnWrong.addEventListener('click',()=>{
     learnedWords=[...wrong].sort(()=>Math.random()-.5);
@@ -507,9 +576,6 @@ function showLearnResume(){
     });
     render();
   });
-  document.getElementById('btn-restart').addEventListener('click',()=>{
-    chunkStart=0;idx=0;wrong=[];answered=false;render();
-  });
 }
 
 function render(){
@@ -517,6 +583,59 @@ function render(){
   if(tab==='learn')renderLearn(a);
   else if(tab==='test')renderTest(a);
   else renderManage(a);
+}
+
+function showTestChunkSelect(){
+  const a=document.getElementById('area');
+  const allWords=profileWords();
+  const total=allWords.length;
+  const totalChunks=Math.ceil(total/CHUNK);
+  const hasWrong=wrong.length>0;
+
+  const chunkBtns=Array.from({length:totalChunks},(_,i)=>{
+    const s=i*CHUNK;
+    const e=Math.min(s+CHUNK,total);
+    return `<button class="chunk-btn" data-start="${s}">
+      <span class="chunk-range">${s+1}~${e}</span>
+      <span class="chunk-label">${e-s}단어</span>
+    </button>`;
+  }).join('');
+
+  a.innerHTML=`<div class="fade-in" style="padding-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <span style="font-size:10px;font-family:'Space Mono',monospace;letter-spacing:.08em;color:var(--hint);text-transform:uppercase;">테스트 구간 선택</span>
+      <span style="font-size:12px;color:var(--muted);">${total}단어 · ${totalChunks}구간</span>
+    </div>
+    <div class="chunk-grid">${chunkBtns}</div>
+    ${hasWrong?`<div style="margin-top:12px;"><button class="btn-g" id="btn-wrong-test" style="background:var(--coral-dim);border-color:var(--coral);color:#F0997B;">틀린 단어만 테스트 (${wrong.length}개)</button></div>`:''}
+    <div style="margin-top:8px;"><button class="btn-d" id="btn-all-test">전체 단어 테스트</button></div>
+  </div>`;
+
+  document.querySelectorAll('.chunk-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const s=parseInt(btn.dataset.start);
+      chunkStart=s;
+      learnedWords=[...allWords.slice(s,s+CHUNK)].sort(()=>Math.random()-.5);
+      testFromLearn=true;
+      idx=0;score=0;wrong=[];answered=false;reviewMode=false;
+      renderTest(document.getElementById('area'));
+    });
+  });
+
+  const btnWrong=document.getElementById('btn-wrong-test');
+  if(btnWrong)btnWrong.addEventListener('click',()=>{
+    learnedWords=[...wrong].sort(()=>Math.random()-.5);
+    testFromLearn=true;
+    idx=0;score=0;wrong=[];answered=false;reviewMode=false;
+    renderTest(document.getElementById('area'));
+  });
+
+  document.getElementById('btn-all-test').addEventListener('click',()=>{
+    learnedWords=[...allWords].sort(()=>Math.random()-.5);
+    testFromLearn=true;
+    idx=0;score=0;wrong=[];answered=false;reviewMode=false;
+    renderTest(document.getElementById('area'));
+  });
 }
 
 // ── LEARN ──
@@ -544,11 +663,13 @@ function renderLearn(a){
       <button class="btn-g" id="btn-start-test">테스트 시작 →</button>
       ${hasNext?`<button class="btn-d" id="btn-next-chunk">다음 ${nextCount}단어 학습하기</button>`:''}
       <button class="btn-d" id="btn-restart-chunk">이 구간 다시 학습</button>
+      <button class="btn-d" id="btn-chunk-select">구간 선택으로 돌아가기</button>
     </div>`;
     document.getElementById('btn-start-test').addEventListener('click',startChunkTest);
     const btnNext=document.getElementById('btn-next-chunk');
     if(btnNext)btnNext.addEventListener('click',()=>{chunkStart+=CHUNK;idx=0;answered=false;testFromLearn=false;words=profileWords();renderLearn(document.getElementById('area'));});
     document.getElementById('btn-restart-chunk').addEventListener('click',()=>{idx=0;answered=false;renderLearn(document.getElementById('area'));});
+    document.getElementById('btn-chunk-select').addEventListener('click',()=>{showChunkSelect();});
     return;
   }
   const w=chunk[idx];
@@ -636,6 +757,7 @@ function renderTest(a){
         ${hasNextChunk?`<button class="btn-g" id="btn-next-learn">다음 ${Math.min(CHUNK,totalWords-(chunkStart+CHUNK))}단어 학습하기 →</button>`:''}
         ${!reviewMode&&wrong.length>0?`<button class="btn-g" id="btn-review2">틀린 단어 복습 →</button>`:''}
         <button class="btn-d" id="btn-retest">다시 테스트</button>
+        <button class="btn-d" id="btn-back-test">구간 선택으로</button>
         <button class="btn-d" id="btn-go-learn">학습 모드로</button>
       </div>`;
       const btnNext=document.getElementById('btn-next-learn');
@@ -653,6 +775,8 @@ function renderTest(a){
       if(btnReview2)btnReview2.addEventListener('click',startReview);
       document.getElementById('btn-retest').addEventListener('click',()=>{idx=0;score=0;wrong=[];answered=false;reviewMode=false;renderTest(document.getElementById('area'));});
       document.getElementById('btn-go-learn').addEventListener('click',()=>{testFromLearn=false;words=profileWords();goTab('learn');});
+      const btnBackTest=document.getElementById('btn-back-test');
+      if(btnBackTest)btnBackTest.addEventListener('click',()=>{testFromLearn=false;showTestChunkSelect();});
     }
     return;
   }
@@ -722,6 +846,8 @@ function renderManage(a){
     if(btnAdd)btnAdd.addEventListener('click',addScanned);
     return;
   }
+  const p=currentProfile();
+  const weekName=p&&p.weeks?p.weeks[currentWeekIdx].name:'';
   const banner=showBanner?`<div class="install-banner">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1D9E75" stroke-width="2" style="flex-shrink:0"><path d="M12 2L12 16M8 12l4 4 4-4"/><rect x="3" y="18" width="18" height="3" rx="1"/></svg>
     <p><b>홈화면에 추가</b><br>Safari → 공유 → '홈 화면에 추가'</p>
@@ -730,6 +856,10 @@ function renderManage(a){
 
   a.innerHTML=`<div class="fade-in">
     ${banner}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <span style="font-size:15px;font-weight:500;color:var(--text);">${weekName}</span>
+      <button id="btn-rename-week" style="font-size:11px;padding:4px 10px;border-radius:8px;border:0.5px solid var(--border);background:var(--bg2);color:var(--muted);cursor:pointer;">이름 변경</button>
+    </div>
     <div class="stat-grid">
       <div class="stat-box"><div class="stat-n">${words.length}</div><div class="stat-l">전체 단어</div></div>
       <div class="stat-box"><div class="stat-n">${wrong.length}</div><div class="stat-l">틀린 단어</div></div>
@@ -770,6 +900,16 @@ function renderManage(a){
 function bindManageEvents(){
   const bannerClose=document.getElementById('banner-close');
   if(bannerClose)bannerClose.addEventListener('click',()=>{showBanner=false;renderManage(document.getElementById('area'));});
+  const btnRename=document.getElementById('btn-rename-week');
+  if(btnRename)btnRename.addEventListener('click',()=>{
+    const p=currentProfile();if(!p||!p.weeks)return;
+    const cur=p.weeks[currentWeekIdx].name;
+    const newName=prompt('주차 이름 변경',cur);
+    if(newName&&newName.trim()){
+      p.weeks[currentWeekIdx].name=newName.trim();
+      saveProfiles();renderWeekTabs();renderManage(document.getElementById('area'));
+    }
+  });
   const uploadZone=document.getElementById('upload-zone');
   const fileIn=document.getElementById('file-in');
   if(uploadZone&&fileIn){
@@ -870,7 +1010,7 @@ async function scanOneFile(file){
   const PROXY='https://toeic-proxy.dlrkdwns96.workers.dev';
   const resp=await fetch(PROXY,{
     method:'POST',
-    headers:{'Content-Type':'text/plain'},
+    headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
       model:'claude-sonnet-4-20250514',
       max_tokens:4096,
