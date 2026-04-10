@@ -1088,6 +1088,37 @@ const BASE13=[
   {w:'find out',m:'알아내다',d:'',ex:''},
   {w:'long-term',m:'장기적인',d:'',ex:''},
   {w:'organize',m:'조직하다, 정리하다',d:'',ex:''}
+];
+const BASE14=[
+  {w:'pose',m:'(사진 등을 위한) 자세, 자세를 취하다',d:'',ex:''},
+  {w:'stay tuned',m:'채널을 고정시키다',d:'',ex:''},
+  {w:'vacate',m:'집을 비우다, 방을 비우다',d:'',ex:''},
+  {w:'appreciative',m:'감사하는',d:'',ex:''},
+  {w:'casually',m:'(복장을) 캐주얼하게, 약식으로',d:'',ex:''},
+  {w:'enlightening',m:'계몽적인, 깨우치는',d:'',ex:''},
+  {w:'enthusiastically',m:'열광적으로, 매우 열심히',d:'',ex:''},
+  {w:'excellence',m:'우수, 탁월성',d:'',ex:''},
+  {w:'excursion',m:'소풍',d:'',ex:''},
+  {w:'festivity',m:'축제, (-ties) 축하 행사',d:'',ex:''},
+  {w:'flock',m:'무리, 떼 / 떼 지어 가다, 모이다',d:'',ex:''},
+  {w:'intriguingly',m:'흥미를 자아내어, 호기심을 자극하여',d:'',ex:''},
+  {w:'leg room',m:'(자동차 등에) 다리를 뻗을 수 있는 공간',d:'',ex:''},
+  {w:'mural',m:'벽화',d:'',ex:''},
+  {w:'portrait',m:'초상화',d:'',ex:''},
+  {w:'publication',m:'출판, 출판물',d:'',ex:''},
+  {w:'sculpture',m:'조각상',d:'',ex:''},
+  {w:'transferable',m:'양도 가능한, 이동 가능한',d:'',ex:''},
+  {w:'unsanitary',m:'비위생적인',d:'',ex:''},
+  {w:'be in the mood for -ing',m:'-하고 싶은 기분이다',d:'',ex:''},
+  {w:'botanical garden',m:'식물원',d:'',ex:''},
+  {w:'censorship',m:'검열 (제도)',d:'',ex:''},
+  {w:'have yet to do',m:'아직 ~해야 한다, 아직 ~하고 있지 않다',d:'',ex:''},
+  {w:'intermission',m:'(연극·영화의) 휴식시간, 막간',d:'',ex:''},
+  {w:'memoirs',m:'회고록, 전기',d:'',ex:''},
+  {w:'must-see',m:'꼭 보아야 할 것',d:'',ex:''},
+  {w:'rally',m:'랠리 (자동차·오토바이 등의 경주), 집회',d:'',ex:''},
+  {w:'ridiculous',m:'우스꽝스러운, 터무니없는',d:'',ex:''},
+  {w:'roam around',m:'이리저리 돌아다니다',d:'',ex:''}
 ];;
 
 const COLORS=['#3B6D11','#185FA5','#854F0B','#993556','#534AB7','#993C1D','#085041','#444441'];
@@ -1157,7 +1188,8 @@ function selectProfile(id){
       {name:'5주차 2일',words:[...BASE10]},
       {name:'5주차 3일',words:[...BASE11]},
       {name:'5주차 4일',words:[...BASE12]},
-      {name:'5주차 5일',words:[...BASE13]}
+      {name:'5주차 5일',words:[...BASE13]},
+      {name:'5주차 6일',words:[...BASE14]}
     ];
     delete p.words;
   }
@@ -1166,9 +1198,10 @@ function selectProfile(id){
     {name:'4주차 5일',base:'BASE8'},
     {name:'5주차 1일',base:'BASE9'},{name:'5주차 2일',base:'BASE10'},
     {name:'5주차 3일',base:'BASE11'},{name:'5주차 4일',base:'BASE12'},
-    {name:'5주차 5일',base:'BASE13'}
+    {name:'5주차 5일',base:'BASE13'},
+    {name:'5주차 6일',base:'BASE14'}
   ];
-  const basemap={BASE,BASE2:[],BASE3:[],BASE4:[],BASE5:[],BASE6:[],BASE7:[],BASE8,BASE9,BASE10,BASE11,BASE12,BASE13};
+  const basemap={BASE,BASE2:[],BASE3:[],BASE4:[],BASE5:[],BASE6:[],BASE7:[],BASE8,BASE9,BASE10,BASE11,BASE12,BASE13,BASE14};
   if(!p.weeks.length){
     p.weeks=allWeekDefs.map(d=>({name:d.name,words:[...basemap[d.base]]}));
   }
